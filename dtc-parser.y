@@ -19,6 +19,7 @@
  */
 %{
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "dtc.h"
 #include "srcpos.h"
@@ -33,6 +34,7 @@ extern void yyerror(char const *s);
 
 extern struct dt_info *parser_output;
 extern bool treesource_error;
+extern unsigned int the_versionflags;
 %}
 
 %union {
@@ -54,9 +56,11 @@ extern bool treesource_error;
 	struct overlay *overlaylist;
 	struct reserve_info *re;
 	uint64_t integer;
+	unsigned int flags;
 }
 
 %token DT_V1
+%token DT_PLUGIN
 %token DT_MEMRESERVE
 %token DT_LSHIFT DT_RSHIFT DT_LE DT_GE DT_EQ DT_NE DT_AND DT_OR
 %token DT_BITS
@@ -73,6 +77,8 @@ extern bool treesource_error;
 
 %type <data> propdata
 %type <data> propdataprefix
+%type <flags> versioninfo
+%type <flags> plugindecl
 %type <re> memreserve
 %type <re> memreserves
 %type <array> arrayprefix
@@ -106,16 +112,37 @@ extern bool treesource_error;
 %%
 
 sourcefile:
-	  v1tag memreserves basetree overlays
+	  versioninfo plugindecl memreserves basetree overlays
 		{
-			parser_output = build_dt_info($2, $3, $4,
-						      guess_boot_cpuid($3));
+			assert(($1 | $2) == the_versionflags);
+			parser_output = build_dt_info($1 | $2, $3, $4, $5,
+							guess_boot_cpuid($4));
+		}
+	;
+
+versioninfo:
+	v1tag
+		{
+			the_versionflags |= VF_DT_V1;
+			$$ = VF_DT_V1;
 		}
 	;
 
 v1tag:
 	  DT_V1 ';'
 	| DT_V1 ';' v1tag
+	| DT_V1
+
+plugindecl:
+	DT_PLUGIN ';'
+		{
+			the_versionflags |= VF_PLUGIN;
+			$$ = the_versionflags;
+		}
+	| /* empty */
+		{
+			$$ = 0;
+		}
 	;
 
 memreserves:

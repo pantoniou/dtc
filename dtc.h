@@ -54,6 +54,12 @@ extern int reservenum;		/* Number of memory reservation slots */
 extern int minsize;		/* Minimum blob size */
 extern int padsize;		/* Additional padding to blob */
 extern int phandle_format;	/* Use linux,phandle or phandle properties */
+extern int symbol_fixup_support;/* enable symbols & fixup support */
+extern int auto_label_aliases;	/* auto generate labels -> aliases */
+
+/*
+ * Tree source globals
+ */
 
 #define PHANDLE_LEGACY	0x1
 #define PHANDLE_EPAPR	0x2
@@ -142,6 +148,8 @@ struct property {
 	struct label *labels;
 };
 
+struct dt_info;
+
 struct node {
 	bool deleted;
 	char *name;
@@ -158,6 +166,9 @@ struct node {
 	int addr_cells, size_cells;
 
 	struct label *labels;
+
+	/* only for the root (parent == NULL) */
+	struct dt_info *dti;
 };
 
 struct overlay {
@@ -200,6 +211,7 @@ struct node *build_node_delete(void);
 struct node *name_node(struct node *node, char *name);
 struct node *chain_node(struct node *first, struct node *list);
 struct node *merge_nodes(struct node *old_node, struct node *new_node);
+void add_orphan_node(struct node *old_node, struct node *new_node, char *ref);
 
 void add_property(struct node *node, struct property *prop);
 void delete_property_by_name(struct node *node, char *name);
@@ -207,6 +219,8 @@ void delete_property(struct property *prop);
 void add_child(struct node *parent, struct node *child);
 void delete_node_by_name(struct node *parent, char *name);
 void delete_node(struct node *node);
+struct property *append_to_property(struct node *node,
+				    char *name, const void *data, int len);
 
 struct overlay *build_overlay(char *target, struct node *dt);
 struct overlay *chain_overlay(struct overlay *first, struct overlay *list);
@@ -246,6 +260,7 @@ struct reserve_info *add_reserve_entry(struct reserve_info *list,
 
 
 struct dt_info {
+	unsigned int versionflags;
 	struct reserve_info *reservelist;
 	uint32_t boot_cpuid_phys;
 
@@ -253,11 +268,25 @@ struct dt_info {
 	struct overlay *overlays;
 };
 
-struct dt_info *build_dt_info(struct reserve_info *reservelist,
+/* version flags definitions */
+#define VF_DT_V1	0x0001	/* /dts-v1/ */
+#define VF_PLUGIN	0x0002	/* /plugin/ */
+
+static inline unsigned int tree_get_versionflags(struct node *dt)
+{
+	if (!dt || !dt->dti)
+		return 0;
+	return dt->dti->versionflags;
+}
+
+struct dt_info *build_dt_info(unsigned int versionflags,
+			      struct reserve_info *reservelist,
 			      struct node *basetree,
 			      struct overlay *overlays,
 			      uint32_t boot_cpuid_phys);
 void sort_tree(struct dt_info *dti);
+void generate_label_tree(struct node *dt, char *gen_node_name, bool allocph);
+void generate_fixups_tree(struct node *dt);
 
 /* Checks */
 

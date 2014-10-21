@@ -27,6 +27,7 @@ extern YYLTYPE yylloc;
 
 struct dt_info *parser_output;
 bool treesource_error;
+unsigned int the_versionflags;
 
 struct dt_info *dt_from_source(const char *fname)
 {
