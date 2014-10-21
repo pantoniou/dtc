@@ -141,6 +141,12 @@ struct fixup_entry {
 	bool local_fixup_generated;
 };
 
+struct fixup {
+	char *ref;
+	struct fixup_entry *entries;
+	struct fixup *next;
+};
+
 struct symbol {
 	struct label *label;
 	struct node *node;
@@ -177,6 +183,9 @@ struct node {
 	struct symbol *symbols;
 	struct fixup_entry *local_fixups;
 	bool emit_local_fixup_node;
+
+	bool is_plugin;
+	struct fixup *fixups;
 };
 
 #define for_each_label_withdel(l0, l) \
@@ -199,6 +208,9 @@ struct node {
 #define for_each_child(n, c) \
 	for_each_child_withdel(n, c) \
 		if (!(c)->deleted)
+
+#define for_each_fixup(n, f) \
+	for ((f) = (n)->fixups; (f); (f) = (f)->next)
 
 #define for_each_fixup_entry(f, fe) \
 	for ((fe) = (f)->entries; (fe); (fe) = (fe)->next)

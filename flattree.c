@@ -391,6 +391,68 @@ static void emit_local_fixups_node(struct node *tree, struct emitter *emit,
 	emit->endnode(etarget, tree->labels);
 }
 
+static void emit_fixups_node(struct node *tree, struct emitter *emit,
+			     void *etarget, struct data *strbuf,
+			     struct version_info *vi)
+{
+	struct fixup *f;
+	struct fixup_entry *fe;
+	char *name, *s;
+	const char *fullpath;
+	int namesz, nameoff, vallen;
+
+	/* do nothing if no fixups */
+	if (!tree->fixups)
+		return;
+
+	/* emit the external fixups */
+	emit->beginnode(etarget, NULL);
+	emit->string(etarget, "__fixups__", 0);
+	emit->align(etarget, sizeof(cell_t));
+
+	for_each_fixup(tree, f) {
+
+		namesz = 0;
+		for_each_fixup_entry(f, fe) {
+			fullpath = fe->node->fullpath;
+			if (fullpath[0] == '\0')
+				fullpath = "/";
+			namesz += strlen(fullpath) + 1;
+			namesz += strlen(fe->prop->name) + 1;
+			namesz += 32;	/* space for :<number> + '\0' */
+		}
+
+		name = xmalloc(namesz);
+
+		s = name;
+		for_each_fixup_entry(f, fe) {
+			fullpath = fe->node->fullpath;
+			if (fullpath[0] == '\0')
+				fullpath = "/";
+			snprintf(s, name + namesz - s, "%s:%s:%d", fullpath,
+					fe->prop->name, fe->offset);
+			s += strlen(s) + 1;
+		}
+
+		nameoff = stringtable_insert(strbuf, f->ref);
+		vallen = s - name - 1;
+
+		emit->property(etarget, NULL);
+		emit->cell(etarget, vallen + 1);
+		emit->cell(etarget, nameoff);
+
+		if ((vi->flags & FTF_VARALIGN) && vallen >= 8)
+			emit->align(etarget, 8);
+
+		emit->string(etarget, name, vallen);
+		emit->align(etarget, sizeof(cell_t));
+
+		free(name);
+	}
+
+	emit->endnode(etarget, tree->labels);
+}
+
 static void flatten_tree(struct node *tree, struct emitter *emit,
 			 void *etarget, struct data *strbuf,
 			 struct version_info *vi)
@@ -448,6 +510,7 @@ static void flatten_tree(struct node *tree, struct emitter *emit,
 
 	emit_symbols_node(tree, emit, etarget, strbuf, vi);
 	emit_local_fixups_node(tree, emit, etarget, strbuf, vi);
+	emit_fixups_node(tree, emit, etarget, strbuf, vi);
 
 	emit->endnode(etarget, tree->labels);
 }

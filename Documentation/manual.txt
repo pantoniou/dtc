@@ -124,6 +124,9 @@ Options:
 	for any node labels used, and for any local references using phandles
 	it also generates a __local_fixups__ node that tracks them.
 
+	When using the /plugin/ tag all unresolved label references to
+	be tracked in the __fixups__ node, making dynamic resolution possible.
+
     -S <bytes>
 	Ensure the blob at least <bytes> long, adding additional
 	space if needed.
@@ -157,6 +160,8 @@ Here is a very rough overview of the layout of a DTS source file:
 		| label 'memreserve' ADDR '-' ADDR ';'
 
     devicetree:   '/' nodedef
+
+    plugindecl:   '/' 'plugin' '/' ';'
 
     nodedef:      '{' list_of_property list_of_subnode '}' ';'
 

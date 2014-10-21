@@ -458,6 +458,7 @@ static void fixup_phandle_references(struct check *c, struct node *dt,
 				     struct node *node, struct property *prop)
 {
 	struct marker *m = prop->val.markers;
+	struct fixup *f, **fp;
 	struct fixup_entry *fe, **fep;
 	struct node *refnode;
 	cell_t phandle;
@@ -467,8 +468,48 @@ static void fixup_phandle_references(struct check *c, struct node *dt,
 
 		refnode = get_node_by_ref(dt, m->ref);
 		if (! refnode) {
-			FAIL(c, "Reference to non-existent node or label \"%s\"\n",
-			     m->ref);
+			if (!dt->is_plugin) {
+				FAIL(c, "Reference to non-existent node or label \"%s\"\n",
+					m->ref);
+				continue;
+			}
+
+			/* allocate fixup entry */
+			fe = xmalloc(sizeof(*fe));
+
+			fe->node = node;
+			fe->prop = prop;
+			fe->offset = m->offset;
+			fe->next = NULL;
+
+			/* search for an already existing fixup */
+			for_each_fixup(dt, f)
+				if (strcmp(f->ref, m->ref) == 0)
+					break;
+
+			/* no fixup found, add new */
+			if (f == NULL) {
+				f = xmalloc(sizeof(*f));
+				f->ref = m->ref;
+				f->entries = NULL;
+				f->next = NULL;
+
+				/* add it to the tree */
+				fp = &dt->fixups;
+				while (*fp)
+					fp = &(*fp)->next;
+				*fp = f;
+			}
+
+			/* and now append fixup entry */
+			fep = &f->entries;
+			while (*fep)
+				fep = &(*fep)->next;
+			*fep = fe;
+
+			/* mark the entry as unresolved */
+			*((cell_t *)(prop->val.val + m->offset)) =
+				cpu_to_fdt32(0xdeadbeef);
 			continue;
 		}
 
