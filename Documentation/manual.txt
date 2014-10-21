@@ -119,6 +119,11 @@ Options:
 	Make space for <number> reserve map entries
 	Relevant for dtb and asm output only.
 
+    -@
+        Generates a __symbols__ node at the root node of the resulting blob
+	for any node labels used, and for any local references using phandles
+	it also generates a __local_fixups__ node that tracks them.
+
     -S <bytes>
 	Ensure the blob at least <bytes> long, adding additional
 	space if needed.
