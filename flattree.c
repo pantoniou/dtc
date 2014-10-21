@@ -930,5 +930,5 @@ struct boot_info *dt_from_blob(const char *fname)
 
 	fclose(f);
 
-	return build_boot_info(reservelist, tree, boot_cpuid_phys);
+	return build_boot_info(VF_DT_V1, reservelist, tree, boot_cpuid_phys);
 }
