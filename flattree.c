@@ -280,12 +280,9 @@ static void emit_local_fixups(struct node *tree, struct emitter *emit,
 
 			/* count the number of fixup entries */
 			count = 0;
-			for_each_local_fixup_entry(tree, fen) {
-				if (fen->prop != fe->prop)
-					continue;
-				fen->local_fixup_generated = true;
-				count++;
-			}
+			for_each_local_fixup_entry(tree, fen)
+				if (fen->prop == fe->prop)
+					count++;
 
 			/* allocate buffer */
 			buf = xmalloc(count * sizeof(cell_t));
