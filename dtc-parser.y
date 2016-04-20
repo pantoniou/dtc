@@ -76,6 +76,7 @@ extern bool treesource_error;
 %type <data> propdataprefix
 %type <flags> versioninfo
 %type <flags> plugindecl
+%type <flags> oldplugindecl
 %type <re> memreserve
 %type <re> memreserves
 %type <array> arrayprefix
@@ -106,10 +107,10 @@ extern bool treesource_error;
 %%
 
 sourcefile:
-	  versioninfo ';' memreserves devicetree
+	  versioninfo ';' oldplugindecl memreserves devicetree
 		{
-			the_boot_info = build_boot_info($1, $3, $4,
-							guess_boot_cpuid($4));
+			the_boot_info = build_boot_info($1 | $3, $4, $5,
+							guess_boot_cpuid($5));
 		}
 	;
 
@@ -122,6 +123,17 @@ versioninfo:
 
 plugindecl:
 	DT_PLUGIN
+		{
+			$$ = VF_PLUGIN;
+		}
+	| /* empty */
+		{
+			$$ = 0;
+		}
+	;
+
+oldplugindecl:
+	DT_PLUGIN ';'
 		{
 			$$ = VF_PLUGIN;
 		}
