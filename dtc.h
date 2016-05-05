@@ -277,8 +277,8 @@ void process_checks(bool force, struct boot_info *bi);
 
 /* Flattened trees */
 
-void dt_to_blob(FILE *f, struct boot_info *bi, int version);
-void dt_to_asm(FILE *f, struct boot_info *bi, int version);
+void dt_to_blob(FILE *f, struct boot_info *bi, fdt32_t magic, int version);
+void dt_to_asm(FILE *f, struct boot_info *bi, fdt32_t magic, int version);
 
 struct boot_info *dt_from_blob(const char *fname);
 
