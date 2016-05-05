@@ -266,8 +266,8 @@ void process_checks(bool force, struct dt_info *dti);
 
 /* Flattened trees */
 
-void dt_to_blob(FILE *f, struct dt_info *dti, int version);
-void dt_to_asm(FILE *f, struct dt_info *dti, int version);
+void dt_to_blob(FILE *f, struct dt_info *dti, fdt32_t magic, int version);
+void dt_to_asm(FILE *f, struct dt_info *dti, fdt32_t magic, int version);
 
 struct dt_info *dt_from_blob(const char *fname);
 

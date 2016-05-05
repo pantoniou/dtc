@@ -42,7 +42,8 @@ static void expand_buf(struct bufstate *buf, int newsize)
 	buf->size = newsize;
 }
 
-static void new_header(struct bufstate *buf, int version, const void *fdt)
+static void new_header(struct bufstate *buf, fdt32_t magic, int version,
+		       const void *fdt)
 {
 	int hdrsize;
 
@@ -56,7 +57,7 @@ static void new_header(struct bufstate *buf, int version, const void *fdt)
 	expand_buf(buf, hdrsize);
 	memset(buf->buf, 0, hdrsize);
 
-	fdt_set_magic(buf->buf, FDT_MAGIC);
+	fdt_set_magic(buf->buf, magic);
 	fdt_set_version(buf->buf, version);
 	fdt_set_last_comp_version(buf->buf, 16);
 	fdt_set_boot_cpuid_phys(buf->buf, fdt_boot_cpuid_phys(fdt));
@@ -145,7 +146,7 @@ int main(int argc, char *argv[])
 	if (fdt_version(fdt) < 17)
 		CONFIG("Input tree must be v17");
 
-	new_header(&buf, version, fdt);
+	new_header(&buf, FDT_MAGIC, version, fdt);
 
 	while (*blockorder) {
 		add_block(&buf, version, *blockorder, fdt);

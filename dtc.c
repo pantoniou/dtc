@@ -127,6 +127,8 @@ static const char *guess_type_by_name(const char *fname, const char *fallback)
 		return "dts";
 	if (!strcasecmp(s, ".dtb"))
 		return "dtb";
+	if (!strcasecmp(s, ".dtbo"))
+		return "dtbo";
 	return fallback;
 }
 
@@ -157,6 +159,8 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 	magic = fdt32_to_cpu(magic);
 	if (magic == FDT_MAGIC)
 		return "dtb";
+	if (magic == FDT_MAGIC_DTBO)
+		return "dtbo";
 
 	return guess_type_by_name(fname, fallback);
 }
@@ -285,7 +289,7 @@ int main(int argc, char *argv[])
 		dti = dt_from_source(arg);
 	else if (streq(inform, "fs"))
 		dti = dt_from_fs(arg);
-	else if(streq(inform, "dtb"))
+	else if (streq(inform, "dtb") || streq(inform, "dtbo"))
 		dti = dt_from_blob(arg);
 	else
 		die("Unknown input format \"%s\"\n", inform);
@@ -319,9 +323,13 @@ int main(int argc, char *argv[])
 	if (streq(outform, "dts")) {
 		dt_to_source(outf, dti);
 	} else if (streq(outform, "dtb")) {
-		dt_to_blob(outf, dti, outversion);
+		dt_to_blob(outf, dti, FDT_MAGIC, outversion);
+	} else if (streq(outform, "dtbo")) {
+		dt_to_blob(outf, dti, FDT_MAGIC_DTBO, outversion);
 	} else if (streq(outform, "asm")) {
-		dt_to_asm(outf, dti, outversion);
+		dt_to_asm(outf, dti, FDT_MAGIC, outversion);
+	} else if (streq(outform, "asmo")) {
+		dt_to_asm(outf, dti, FDT_MAGIC_DTBO, outversion);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {
