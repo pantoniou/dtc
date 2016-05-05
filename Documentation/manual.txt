@@ -60,6 +60,9 @@ The currently supported Input Formats are:
     - "dtb": "blob" format.  A flattened device-tree block with
         header in one binary blob.
 
+    - "dtbo" : "blob" format. Identical with "dtb" but meant
+        for use with dynamic-device tree objects.
+
     - "dts": "source" format.  A text file containing a "source"
         for a device-tree.
 
@@ -71,12 +74,16 @@ The currently supported Output Formats are:
 
      - "dtb": "blob" format
 
+     - "dtbo": "blob" format - for objects
+
      - "dts": "source" format
 
      - "asm": assembly language file.  A file that can be sourced
         by gas to generate a device-tree "blob".  That file can
         then simply be added to your Makefile.  Additionally, the
         assembly file exports some symbols that can be used.
+
+     - "asmo": assembly language file for objects. Identical to "asm"
 
 
 3) Command Line
