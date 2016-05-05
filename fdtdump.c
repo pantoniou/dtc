@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
 			p = memchr(p, smagic[0], endp - p - FDT_MAGIC_SIZE);
 			if (!p)
 				break;
-			if (fdt_magic(p) == FDT_MAGIC) {
+			if (fdt_magic(p) == FDT_MAGIC || fdt_magic(p) == FDT_MAGIC_DTBO) {
 				/* try and validate the main struct */
 				off_t this_len = endp - p;
 				fdt32_t max_version = 17;

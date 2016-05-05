@@ -32,6 +32,10 @@ int minsize;		/* Minimum blob size */
 int padsize;		/* Additional padding to blob */
 int alignsize;		/* Additional padding to blob accroding to the alignsize */
 int phandle_format = PHANDLE_BOTH;	/* Use linux,phandle or phandle properties */
+int generate_symbols;	/* enable symbols & fixup support */
+int generate_fixups;		/* suppress generation of fixups on symbol support */
+int auto_label_aliases;		/* auto generate labels -> aliases */
+int no_dtbo_magic;		/* use old FDT magic values for objects */
 
 static int is_power_of_2(int x)
 {
@@ -59,7 +63,7 @@ static void fill_fullpaths(struct node *tree, const char *prefix)
 #define FDT_VERSION(version)	_FDT_VERSION(version)
 #define _FDT_VERSION(version)	#version
 static const char usage_synopsis[] = "dtc [options] <input file>";
-static const char usage_short_opts[] = "qI:O:o:V:d:R:S:p:a:fb:i:H:sW:E:hv";
+static const char usage_short_opts[] = "qI:O:o:V:d:R:S:p:a:fb:i:H:sW:E:@FAMhv";
 static struct option const usage_long_opts[] = {
 	{"quiet",            no_argument, NULL, 'q'},
 	{"in-format",         a_argument, NULL, 'I'},
@@ -78,6 +82,10 @@ static struct option const usage_long_opts[] = {
 	{"phandle",           a_argument, NULL, 'H'},
 	{"warning",           a_argument, NULL, 'W'},
 	{"error",             a_argument, NULL, 'E'},
+	{"symbols",	     no_argument, NULL, '@'},
+	{"fixups",	     no_argument, NULL, 'F'},
+	{"auto-alias",       no_argument, NULL, 'A'},
+	{"no-dtbo-magic",    no_argument, NULL, 'M'},
 	{"help",             no_argument, NULL, 'h'},
 	{"version",          no_argument, NULL, 'v'},
 	{NULL,               no_argument, NULL, 0x0},
@@ -109,6 +117,10 @@ static const char * const usage_opts_help[] = {
 	 "\t\tboth   - Both \"linux,phandle\" and \"phandle\" properties",
 	"\n\tEnable/disable warnings (prefix with \"no-\")",
 	"\n\tEnable/disable errors (prefix with \"no-\")",
+	"\n\tEnable generation of symbols",
+	"\n\tEnable generation of fixups",
+	"\n\tEnable auto-alias of labels",
+	"\n\tDo not use DTBO magic value for plugin objects",
 	"\n\tPrint this help and exit",
 	"\n\tPrint version and exit",
 	NULL,
@@ -153,7 +165,7 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 	fclose(f);
 
 	magic = fdt32_to_cpu(magic);
-	if (magic == FDT_MAGIC)
+	if (magic == FDT_MAGIC || magic == FDT_MAGIC_DTBO)
 		return "dtb";
 
 	return guess_type_by_name(fname, fallback);
@@ -172,6 +184,7 @@ int main(int argc, char *argv[])
 	FILE *outf = NULL;
 	int outversion = DEFAULT_FDT_VERSION;
 	long long cmdline_boot_cpuid = -1;
+	fdt32_t out_magic = FDT_MAGIC;
 
 	quiet      = 0;
 	reservenum = 0;
@@ -249,6 +262,19 @@ int main(int argc, char *argv[])
 			parse_checks_option(false, true, optarg);
 			break;
 
+		case '@':
+			generate_symbols = 1;
+			break;
+		case 'F':
+			generate_fixups = 1;
+			break;
+		case 'A':
+			auto_label_aliases = 1;
+			break;
+		case 'M':
+			no_dtbo_magic = 1;
+			break;
+
 		case 'h':
 			usage(NULL);
 		default:
@@ -306,6 +332,23 @@ int main(int argc, char *argv[])
 	fill_fullpaths(bi->dt, "");
 	process_checks(force, bi);
 
+	/* on a plugin, generate by default */
+	if (bi->dtsversionflags & DTSVF_PLUGIN) {
+		generate_symbols = 1;
+		generate_fixups = 1;
+	}
+
+	if (auto_label_aliases)
+		generate_label_tree(bi, "aliases", false);
+
+	if (generate_symbols)
+		generate_label_tree(bi, "__symbols__", true);
+
+	if (generate_fixups) {
+		generate_fixups_tree(bi, "__fixups__");
+		generate_local_fixups_tree(bi, "__local_fixups__");
+	}
+
 	if (sort)
 		sort_tree(bi);
 
@@ -318,12 +361,15 @@ int main(int argc, char *argv[])
 			    outname, strerror(errno));
 	}
 
+	if (!no_dtbo_magic && (bi->dtsversionflags & DTSVF_PLUGIN))
+		out_magic = FDT_MAGIC_DTBO;
+
 	if (streq(outform, "dts")) {
 		dt_to_source(outf, bi);
 	} else if (streq(outform, "dtb")) {
-		dt_to_blob(outf, bi, outversion);
+		dt_to_blob(outf, bi, out_magic, outversion);
 	} else if (streq(outform, "asm")) {
-		dt_to_asm(outf, bi, outversion);
+		dt_to_asm(outf, bi, out_magic, outversion);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {
