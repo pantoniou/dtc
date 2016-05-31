@@ -235,35 +235,35 @@ struct reserve_info *add_reserve_entry(struct reserve_info *list,
 				       struct reserve_info *new);
 
 
-struct boot_info {
+struct dt_info {
 	struct reserve_info *reservelist;
-	struct node *dt;		/* the device tree */
 	uint32_t boot_cpuid_phys;
+	struct node *dt;		/* the device tree */
 };
 
-struct boot_info *build_boot_info(struct reserve_info *reservelist,
-				  struct node *tree, uint32_t boot_cpuid_phys);
-void sort_tree(struct boot_info *bi);
+struct dt_info *build_dt_info(struct reserve_info *reservelist,
+			      struct node *tree, uint32_t boot_cpuid_phys);
+void sort_tree(struct dt_info *dti);
 
 /* Checks */
 
 void parse_checks_option(bool warn, bool error, const char *arg);
-void process_checks(bool force, struct boot_info *bi);
+void process_checks(bool force, struct dt_info *dti);
 
 /* Flattened trees */
 
-void dt_to_blob(FILE *f, struct boot_info *bi, int version);
-void dt_to_asm(FILE *f, struct boot_info *bi, int version);
+void dt_to_blob(FILE *f, struct dt_info *dti, int version);
+void dt_to_asm(FILE *f, struct dt_info *dti, int version);
 
-struct boot_info *dt_from_blob(const char *fname);
+struct dt_info *dt_from_blob(const char *fname);
 
 /* Tree source */
 
-void dt_to_source(FILE *f, struct boot_info *bi);
-struct boot_info *dt_from_source(const char *f);
+void dt_to_source(FILE *f, struct dt_info *dti);
+struct dt_info *dt_from_source(const char *f);
 
 /* FS trees */
 
-struct boot_info *dt_from_fs(const char *dirname);
+struct dt_info *dt_from_fs(const char *dirname);
 
 #endif /* _DTC_H */

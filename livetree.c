@@ -335,17 +335,17 @@ struct reserve_info *add_reserve_entry(struct reserve_info *list,
 	return list;
 }
 
-struct boot_info *build_boot_info(struct reserve_info *reservelist,
-				  struct node *tree, uint32_t boot_cpuid_phys)
+struct dt_info *build_dt_info(struct reserve_info *reservelist,
+			      struct node *tree, uint32_t boot_cpuid_phys)
 {
-	struct boot_info *bi;
+	struct dt_info *dti;
 
-	bi = xmalloc(sizeof(*bi));
-	bi->reservelist = reservelist;
-	bi->dt = tree;
-	bi->boot_cpuid_phys = boot_cpuid_phys;
+	dti = xmalloc(sizeof(*dti));
+	dti->reservelist = reservelist;
+	dti->dt = tree;
+	dti->boot_cpuid_phys = boot_cpuid_phys;
 
-	return bi;
+	return dti;
 }
 
 /*
@@ -592,12 +592,12 @@ static int cmp_reserve_info(const void *ax, const void *bx)
 		return 0;
 }
 
-static void sort_reserve_entries(struct boot_info *bi)
+static void sort_reserve_entries(struct dt_info *dti)
 {
 	struct reserve_info *ri, **tbl;
 	int n = 0, i = 0;
 
-	for (ri = bi->reservelist;
+	for (ri = dti->reservelist;
 	     ri;
 	     ri = ri->next)
 		n++;
@@ -607,14 +607,14 @@ static void sort_reserve_entries(struct boot_info *bi)
 
 	tbl = xmalloc(n * sizeof(*tbl));
 
-	for (ri = bi->reservelist;
+	for (ri = dti->reservelist;
 	     ri;
 	     ri = ri->next)
 		tbl[i++] = ri;
 
 	qsort(tbl, n, sizeof(*tbl), cmp_reserve_info);
 
-	bi->reservelist = tbl[0];
+	dti->reservelist = tbl[0];
 	for (i = 0; i < (n-1); i++)
 		tbl[i]->next = tbl[i+1];
 	tbl[n-1]->next = NULL;
@@ -704,8 +704,8 @@ static void sort_node(struct node *node)
 		sort_node(c);
 }
 
-void sort_tree(struct boot_info *bi)
+void sort_tree(struct dt_info *dti)
 {
-	sort_reserve_entries(bi);
-	sort_node(bi->dt);
+	sort_reserve_entries(dti);
+	sort_node(dti->dt);
 }

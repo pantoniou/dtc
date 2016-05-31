@@ -763,9 +763,9 @@ void parse_checks_option(bool warn, bool error, const char *arg)
 	die("Unrecognized check name \"%s\"\n", name);
 }
 
-void process_checks(bool force, struct boot_info *bi)
+void process_checks(bool force, struct dt_info *dti)
 {
-	struct node *dt = bi->dt;
+	struct node *dt = dti->dt;
 	int i;
 	int error = 0;
 

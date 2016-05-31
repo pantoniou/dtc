@@ -31,7 +31,7 @@ extern void yyerror(char const *s);
 		treesource_error = true; \
 	} while (0)
 
-extern struct boot_info *the_boot_info;
+extern struct dt_info *parser_output;
 extern bool treesource_error;
 %}
 
@@ -103,8 +103,8 @@ extern bool treesource_error;
 sourcefile:
 	  v1tag memreserves devicetree
 		{
-			the_boot_info = build_boot_info($2, $3,
-							guess_boot_cpuid($3));
+			parser_output = build_dt_info($2, $3,
+						      guess_boot_cpuid($3));
 		}
 	;
 

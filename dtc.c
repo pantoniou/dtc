@@ -153,7 +153,7 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 
 int main(int argc, char *argv[])
 {
-	struct boot_info *bi;
+	struct dt_info *dti;
 	const char *inform = NULL;
 	const char *outform = NULL;
 	const char *outname = "-";
@@ -272,11 +272,11 @@ int main(int argc, char *argv[])
 		}
 	}
 	if (streq(inform, "dts"))
-		bi = dt_from_source(arg);
+		dti = dt_from_source(arg);
 	else if (streq(inform, "fs"))
-		bi = dt_from_fs(arg);
+		dti = dt_from_fs(arg);
 	else if(streq(inform, "dtb"))
-		bi = dt_from_blob(arg);
+		dti = dt_from_blob(arg);
 	else
 		die("Unknown input format \"%s\"\n", inform);
 
@@ -286,13 +286,13 @@ int main(int argc, char *argv[])
 	}
 
 	if (cmdline_boot_cpuid != -1)
-		bi->boot_cpuid_phys = cmdline_boot_cpuid;
+		dti->boot_cpuid_phys = cmdline_boot_cpuid;
 
-	fill_fullpaths(bi->dt, "");
-	process_checks(force, bi);
+	fill_fullpaths(dti->dt, "");
+	process_checks(force, dti);
 
 	if (sort)
-		sort_tree(bi);
+		sort_tree(dti);
 
 	if (streq(outname, "-")) {
 		outf = stdout;
@@ -304,11 +304,11 @@ int main(int argc, char *argv[])
 	}
 
 	if (streq(outform, "dts")) {
-		dt_to_source(outf, bi);
+		dt_to_source(outf, dti);
 	} else if (streq(outform, "dtb")) {
-		dt_to_blob(outf, bi, outversion);
+		dt_to_blob(outf, dti, outversion);
 	} else if (streq(outform, "asm")) {
-		dt_to_asm(outf, bi, outversion);
+		dt_to_asm(outf, dti, outversion);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {
