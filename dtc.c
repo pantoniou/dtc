@@ -49,6 +49,16 @@ static void fill_fullpaths(struct node *tree, const char *prefix)
 		fill_fullpaths(child, tree->fullpath);
 }
 
+static void resolve_overlays(struct dt_info *dti)
+{
+	while (dti->overlays) {
+		struct overlay *o = dti->overlays;
+
+		dti->overlays = dti->overlays->next;
+		apply_overlay(dti->dt, o);
+	}
+}
+
 /* Usage related data. */
 #define FDT_VERSION(version)	_FDT_VERSION(version)
 #define _FDT_VERSION(version)	#version
@@ -288,7 +298,10 @@ int main(int argc, char *argv[])
 	if (cmdline_boot_cpuid != -1)
 		dti->boot_cpuid_phys = cmdline_boot_cpuid;
 
+	resolve_overlays(dti);
+
 	fill_fullpaths(dti->dt, "");
+
 	process_checks(force, dti);
 
 	if (sort)

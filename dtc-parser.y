@@ -50,6 +50,8 @@ extern bool treesource_error;
 	struct property *proplist;
 	struct node *node;
 	struct node *nodelist;
+	struct overlay *overlay;
+	struct overlay *overlaylist;
 	struct reserve_info *re;
 	uint64_t integer;
 }
@@ -78,10 +80,13 @@ extern bool treesource_error;
 %type <prop> propdef
 %type <proplist> proplist
 
-%type <node> devicetree
 %type <node> nodedef
 %type <node> subnode
 %type <nodelist> subnodes
+
+%type <node> basetree
+%type <overlay> overlay
+%type <overlaylist> overlays
 
 %type <integer> integer_prim
 %type <integer> integer_unary
@@ -101,9 +106,9 @@ extern bool treesource_error;
 %%
 
 sourcefile:
-	  v1tag memreserves devicetree
+	  v1tag memreserves basetree overlays
 		{
-			parser_output = build_dt_info($2, $3,
+			parser_output = build_dt_info($2, $3, $4,
 						      guess_boot_cpuid($3));
 		}
 	;
@@ -136,48 +141,40 @@ memreserve:
 		}
 	;
 
-devicetree:
+basetree:
 	  '/' nodedef
 		{
 			$$ = name_node($2, "");
 		}
-	| devicetree '/' nodedef
+	;
+
+overlay:  basetree
 		{
-			$$ = merge_nodes($1, $3);
+			$$ = build_overlay("/", $1);
 		}
-
-	| devicetree DT_LABEL DT_REF nodedef
+	| DT_REF nodedef
 		{
-			struct node *target = get_node_by_ref($1, $3);
-
-			add_label(&target->labels, $2);
-			if (target)
-				merge_nodes(target, $4);
-			else
-				ERROR(&@3, "Label or path %s not found", $3);
-			$$ = $1;
+			$$ = build_overlay($1, $2);
 		}
-	| devicetree DT_REF nodedef
+	| DT_DEL_NODE DT_REF ';'
 		{
-			struct node *target = get_node_by_ref($1, $2);
-
-			if (target)
-				merge_nodes(target, $3);
-			else
-				ERROR(&@2, "Label or path %s not found", $2);
-			$$ = $1;
+			$$ = build_overlay($2, NULL);
 		}
-	| devicetree DT_DEL_NODE DT_REF ';'
+	| DT_LABEL overlay
 		{
-			struct node *target = get_node_by_ref($1, $3);
+			add_label(&$2->dt->labels, $1);
+			$$ = $2;
+		}
+	;
 
-			if (target)
-				delete_node(target);
-			else
-				ERROR(&@3, "Label or path %s not found", $3);
-
-
-			$$ = $1;
+overlays:
+	  /* empty */
+		{
+			$$ = NULL;
+		}
+	| overlay overlays
+		{
+			$$ = chain_overlay($1, $2);
 		}
 	;
 

@@ -929,5 +929,5 @@ struct dt_info *dt_from_blob(const char *fname)
 
 	fclose(f);
 
-	return build_dt_info(reservelist, tree, boot_cpuid_phys);
+	return build_dt_info(reservelist, tree, NULL, boot_cpuid_phys);
 }

@@ -160,6 +160,12 @@ struct node {
 	struct label *labels;
 };
 
+struct overlay {
+	char *target;
+	struct node *dt;
+	struct overlay *next;
+};
+
 #define for_each_label_withdel(l0, l) \
 	for ((l) = (l0); (l); (l) = (l)->next)
 
@@ -202,6 +208,10 @@ void add_child(struct node *parent, struct node *child);
 void delete_node_by_name(struct node *parent, char *name);
 void delete_node(struct node *node);
 
+struct overlay *build_overlay(char *target, struct node *dt);
+struct overlay *chain_overlay(struct overlay *first, struct overlay *list);
+void apply_overlay(struct node *base, struct overlay *overlay);
+
 const char *get_unitname(struct node *node);
 struct property *get_property(struct node *node, const char *propname);
 cell_t propval_cell(struct property *prop);
@@ -238,11 +248,15 @@ struct reserve_info *add_reserve_entry(struct reserve_info *list,
 struct dt_info {
 	struct reserve_info *reservelist;
 	uint32_t boot_cpuid_phys;
-	struct node *dt;		/* the device tree */
+
+	struct node *dt;
+	struct overlay *overlays;
 };
 
 struct dt_info *build_dt_info(struct reserve_info *reservelist,
-			      struct node *tree, uint32_t boot_cpuid_phys);
+			      struct node *basetree,
+			      struct overlay *overlays,
+			      uint32_t boot_cpuid_phys);
 void sort_tree(struct dt_info *dti);
 
 /* Checks */
