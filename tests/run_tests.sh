@@ -227,6 +227,12 @@ overlay_tests () {
         run_test check_path overlay_overlay_with_aliases.dtb exists "/__symbols__"
         run_test check_path overlay_overlay_with_aliases.dtb exists "/__fixups__"
         run_test check_path overlay_overlay_with_aliases.dtb exists "/__local_fixups__"
+
+        # test simplified plugin syntax
+        run_dtc_test -@ -I dts -O dtb -o overlay_overlay_simple.dtb overlay_overlay_simple.dts
+
+        # verify non-generation of local fixups
+        run_test check_path overlay_overlay_simple.dtb not-exists "/__local_fixups__"
     fi
 
     # Bad fixup tests
