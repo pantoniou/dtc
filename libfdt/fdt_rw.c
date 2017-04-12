@@ -283,8 +283,13 @@ int fdt_setprop(void *fdt, int nodeoffset, const char *name,
 	if (err)
 		return err;
 
-	if (len)
+	if (!len)
+		return 0;
+
+	if (val)
 		memcpy(prop->data, val, len);
+	else
+		memset(prop->data, 0, len);
 	return 0;
 }
 
