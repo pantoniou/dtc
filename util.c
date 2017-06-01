@@ -100,10 +100,17 @@ char *join_path(const char *path, const char *name)
 	return str;
 }
 
+bool util_isesc(char c)
+{
+	return c == '\a' || c == '\b' || c == '\t' || c == '\n' || c == '\v' ||
+	       c == '\f' || c == '\r' || c == '\\' || c == '\"';
+}
+
 bool util_is_printable_string(const void *data, int len)
 {
 	const char *s = data;
 	const char *ss, *se;
+	char c;
 
 	/* zero length is not */
 	if (len == 0)
@@ -117,8 +124,13 @@ bool util_is_printable_string(const void *data, int len)
 
 	while (s < se) {
 		ss = s;
-		while (s < se && *s && isprint((unsigned char)*s))
+		while (s < se && *s) {
+			c = *s;
+			if (!(isprint(c) || util_isesc(c)))
+				break;
 			s++;
+		}
+
 
 		/* not zero, or not done yet */
 		if (*s != '\0' || s == ss)
@@ -128,6 +140,62 @@ bool util_is_printable_string(const void *data, int len)
 	}
 
 	return 1;
+}
+
+char *util_c2str(char c, char *buf, int bufsz)
+{
+	char *s = buf;
+
+	if (util_isesc(c)) {
+
+		if (bufsz < 3)
+			return NULL;
+
+		/* escape case */
+		*s++ = '\\';
+		switch (c) {
+		case '\a': *s++ =  'a'; break;
+		case '\b': *s++ =  'b'; break;
+		case '\t': *s++ =  't'; break;
+		case '\n': *s++ =  'n'; break;
+		case '\v': *s++ =  'v'; break;
+		case '\f': *s++ =  'f'; break;
+		case '\r': *s++ =  'r'; break;
+		case '\\': *s++ = '\\'; break;
+		case '\"': *s++ = '\"'; break;
+		}
+	} else if (!isprint(c)) {
+		static const char *hexb = "0123456789abcdef";
+
+		if (bufsz < 5)
+			return NULL;
+
+		/* hexadecimal escape case */
+		*s++ = '\\';
+		*s++ = 'x';
+		*s++ = hexb[(((unsigned int)c >> 4) & 0xf)];
+		*s++ = hexb[  (unsigned int)c       & 0xf ];
+	} else {
+		if (bufsz < 2)
+			return NULL;
+
+		*s++ = c;	/* normal printable */
+	}
+
+	*s = '\0';
+
+	return buf;
+}
+
+int util_quoted_strlen(const char *str)
+{
+	int len;
+	char c, buf[C2STR_BUF_MAX];
+
+	len = 1;
+	while ((c = *str++) != '\0' && util_c2str(c, buf, sizeof(buf)))
+		len += strlen(buf);
+	return len + 1;
 }
 
 /*

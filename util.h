@@ -82,6 +82,41 @@ extern char *join_path(const char *path, const char *name);
  */
 bool util_is_printable_string(const void *data, int len);
 
+/**
+ * Check if this is is a character we should escape.
+ * The list of valid escaped chars is: \a\b\t\n\b\f\r\\\"
+ *
+ * @param c	The character to check
+ * @return 1 if the character is one that should be escaped
+ */
+bool util_isesc(char c);
+
+/**
+ * Convert a given character to it's escaped form
+ * If it's a normal printable character the buffer is filled with "c\0"
+ * If it's an escaped character the corresponding escape * is terminated
+ * with \<esc>\0
+ * For any other a hex form is used (\xYY) where YY is the ascii in hex of c.
+ *
+ * @param c	The character to convert
+ * @param buf	The corresponding buffer to fill
+ * @param bufsz The maximum buffer size (including NULL).
+ * 		Note that the absolute maximum buffer fill is 5 for \xYY\0
+ * @return 	buf if the result fits or NULL on error
+ */
+char *util_c2str(char c, char *buf, int bufsz);
+
+/* maximum buffer for c2str */
+#define C2STR_BUF_MAX	5
+
+/**
+ * Return the length in characters when quoting the given string
+ *
+ * @param str	The string to query it's quoted length
+ * @return	Length in characters of the quoted string generated from str.
+ */
+int util_quoted_strlen(const char *str);
+
 /*
  * Parse an escaped character starting at index i in string s.  The resulting
  * character will be returned and the index i will be updated to point at the
