@@ -679,6 +679,8 @@ The syntax of the fdtdump command line is:
 Where options are:
     -d,--debug          Dump debug information while decoding the file
     -s,--scan           Scan for an embedded fdt in given file
+    -w,--width		Width of output in columns
+    -S,--shift		Shift space amount when recursing in a node
 
 3) fdtoverlay -- Flat Device Tree overlay applicator
 
