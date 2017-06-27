@@ -18,6 +18,7 @@
  *                                                                   USA
  */
 
+#include <inttypes.h>
 #include "dtc.h"
 
 #ifdef TRACE_CHECKS
@@ -873,7 +874,7 @@ static void check_simple_bus_reg(struct check *c, struct dt_info *dti, struct no
 	while (size--)
 		reg = (reg << 32) | fdt32_to_cpu(*(cells++));
 
-	snprintf(unit_addr, sizeof(unit_addr), "%zx", reg);
+	snprintf(unit_addr, sizeof(unit_addr), "%" PRIx64, reg);
 	if (!streq(unitname, unit_addr))
 		FAIL(c, dti, "Node %s simple-bus unit address format error, expected \"%s\"",
 		     node->fullpath, unit_addr);
