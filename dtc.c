@@ -355,6 +355,8 @@ int main(int argc, char *argv[])
 		dt_to_blob(outf, dti, outversion);
 	} else if (streq(outform, "asm")) {
 		dt_to_asm(outf, dti, outversion);
+	} else if (streq(outform, "yaml")) {
+		dt_to_yaml(outf, dti, outversion);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {

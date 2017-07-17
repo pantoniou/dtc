@@ -577,6 +577,396 @@ void dt_to_asm(FILE *f, struct dt_info *dti, int version)
 	data_free(strbuf);
 }
 
+/* pseudo labels are yaml_pseudo__<n>__ where n is an integer */
+#define PSEUDO_PREFIX "yaml_pseudo__"
+#define PSEUDO_SUFFIX "__"
+
+static void yaml_generate_pseudo_labels(struct dt_info *dti, struct node *tree,
+			       int *next_autoref)
+{
+	struct property *prop;
+	struct node *child, *refnode;
+	struct marker *m;
+	struct label *l;
+	char *newlabel;
+
+	if (tree->deleted)
+		return;
+
+	/* do not do anything for those */
+	if (!strcmp(tree->name, "__symbols__") ||
+	    !strcmp(tree->name, "__fixups__") ||
+	    !strcmp(tree->name, "__local_fixups__"))
+		return;
+
+	for_each_property(tree, prop) {
+
+		/* skip auto-generated names */
+		if (!strcmp(prop->name, "name") ||
+		    !strcmp(prop->name, "phandle") ||
+		    !strcmp(prop->name, "linux,phandle"))
+			continue;
+
+		m = prop->val.markers;
+		for_each_marker_of_type(m, REF_PHANDLE) {
+
+			refnode = get_node_by_ref(dti->dt, m->ref);
+			if (!refnode)
+				die("Can't get refnode for %s\n", m->ref);
+
+			/* get first non deleted label */
+			l = refnode->labels;
+			while (l && l->deleted)
+				l = l->next;
+
+			if (!l) {
+				xasprintf(&newlabel, "yaml_pseudo__%u__",
+						(*next_autoref)++);
+				add_label(&refnode->labels, newlabel);
+			}
+		}
+	}
+
+	for_each_child(tree, child)
+		yaml_generate_pseudo_labels(dti, child, next_autoref);
+}
+
+static bool is_yaml_pseudo(const char *str)
+{
+	if (strlen(str) < strlen(PSEUDO_PREFIX "0" PSEUDO_SUFFIX))
+		return false;
+
+	if (memcmp(str, PSEUDO_PREFIX, strlen(PSEUDO_PREFIX)))
+		return false;
+	str += strlen(PSEUDO_PREFIX);
+
+	while (isdigit(*str))
+		str++;
+
+	if (strlen(str) < strlen(PSEUDO_SUFFIX))
+		return false;
+
+	return !strcmp(str, PSEUDO_SUFFIX);
+}
+
+static void yaml_flatten_tree(FILE *f, struct dt_info *dti,
+			      struct node *tree, int depth,
+			      struct version_info *vi)
+{
+	struct property *prop;
+	struct node *child, *refnode;
+	struct marker *m;
+	struct label *l = NULL, *lr;
+	bool has_ref_phandle, has_probable_hex_value;
+	const char *s, *ss;
+	int len, i, count, outcount;
+	char c, buf[C2STR_BUF_MAX];
+	const fdt32_t *cell;
+	fdt32_t val;
+
+	if (tree->deleted)
+		return;
+
+	/* do not output anything for auto-generated nodes */
+	if (!strcmp(tree->name, "__symbols__") ||
+	    !strcmp(tree->name, "__fixups__") ||
+	    !strcmp(tree->name, "__local_fixups__"))
+		return;
+
+	if (depth > 0) {
+		fprintf(f, "%*s%s:", (depth - 1) * 2, "", tree->name);
+
+		/* get first non deleted label */
+		l = tree->labels;
+		while (l && l->deleted)
+			l = l->next;
+
+		if (l) {
+			fprintf(f, " &%s", l->label);
+			/* skip to next label */
+			l = l->next;
+			while (l && l->deleted)
+				l = l->next;
+		}
+
+		fprintf(f, "\n");
+	}
+
+	outcount = 0;
+	for_each_property(tree, prop) {
+
+		/* skip auto-generated names */
+		if (!strcmp(prop->name, "name"))
+			continue;
+
+		/* Ugh, it is valid to set own's phandle value */
+		if (!strcmp(prop->name, "phandle") ||
+		    !strcmp(prop->name, "linux,phandle")) {
+
+			if (prop->val.len != sizeof(cell_t))
+				die("%s %s property not cell sized\n",
+					tree->fullpath, prop->name);
+
+			/* skip to first REF_PHANDLE marker */
+			m = prop->val.markers;
+			while (m && m->type != REF_PHANDLE)
+				m = m->next;
+
+			/* no marker? just ignore */
+			if (!m)
+				continue;
+
+			if (m->offset != 0)
+				die("%s %s property marker not valid\n",
+					tree->fullpath, prop->name);
+
+			if (get_node_by_ref(dti->dt, m->ref) != tree)
+				die("%s explicit %s property references other node\n",
+					tree->fullpath, prop->name);
+		}
+
+		outcount++;
+
+		fprintf(f, "%*s", depth * 2, "");
+		if (prop->name[0] != '#')
+			fprintf(f, "%s:", prop->name);
+		else
+			fprintf(f, "\"%s\":", prop->name);
+
+		s = prop->val.val;
+		len = prop->val.len;
+
+		/* boolean */
+		if (len == 0) {
+			fprintf(f, " true\n");
+			continue;
+		}
+
+		m = prop->val.markers;
+		while (m && m->type != REF_PATH)
+			m = m->next;
+		if (m) {
+			refnode = get_node_by_ref(dti->dt, m->ref);
+			if (!refnode)
+				die("Can't get refnode for %s\n", m->ref);
+
+			fprintf(f, " !pathref %s\n", m->ref);
+			continue;
+		}
+
+		has_ref_phandle = false;
+		m = prop->val.markers;
+		for_each_marker_of_type(m, REF_PHANDLE) {
+			has_ref_phandle = true;
+			break;
+		}
+
+		/* if there's a phandle ref it's cells */
+		if (has_ref_phandle) {
+
+			if ((len % 4) != 0)
+				die("Property with cell values non cell sized\n");
+
+			cell = (const fdt32_t *)s;
+			count = len / 4;
+
+			if (count > 1)
+				fputs(" [", f);
+
+			/* skip to first REF_PHANDLE marker */
+			m = prop->val.markers;
+			while (m && m->type != REF_PHANDLE)
+				m = m->next;
+
+			for (i = 0; i < count; i++) {
+
+				if (m && m->offset == (i * 4)) {
+
+					refnode = get_node_by_ref(dti->dt, m->ref);
+					if (!refnode)
+						die("Can't get refnode for %s\n", m->ref);
+
+					/* get label that matches ref */
+					for_each_label(refnode->labels, lr)
+						if (!strcmp(lr->label, m->ref))
+							break;
+
+					/* no label, try a pseudo label */
+					if (!lr) {
+						for_each_label(refnode->labels, lr) {
+							if (is_yaml_pseudo(lr->label))
+								break;
+						}
+					}
+
+					if (!lr)
+						die("No label at node %s for ref %s\n",
+							refnode->fullpath, m->ref);
+
+					fprintf(f, " *%s", lr->label);
+
+					/* skip to next REF_PHANDLE marker */
+					m = m->next;
+					while (m && m->type != REF_PHANDLE)
+						m = m->next;
+				} else {
+					val = fdt32_to_cpu(cell[i]);
+					fprintf(f, " 0x%08x", val);
+				}
+
+				if (i + 1 < count)
+					fputs(",", f);
+			}
+
+			if (count > 1)
+				fputs(" ]", f);
+
+			fputc('\n', f);
+
+
+		} else if (util_is_printable_string(s, len)) {
+			ss = s;
+			for (count = 0; ss < s + len; count++)
+				ss += strlen(ss) + 1;
+			assert(count > 0);
+
+			if (count > 1)
+				fputs(" [", f);
+
+			for (i = 0; i < count; i++) {
+				fputs(" \"", f);
+				while ((c = *s++) != '\0' && util_c2str(c, buf, sizeof(buf)))
+					fprintf(f, "%s", buf);
+				fputs("\"", f);
+
+				if (i + 1 < count)
+					fputs(",", f);
+			}
+
+			if (count > 1)
+				fputs(" ]", f);
+
+			fputc('\n', f);
+
+		} else if ((len % 4) == 0) {
+			cell = (const fdt32_t *)s;
+			count = len / 4;
+
+			/* try to find out if there's a hex value */
+			has_probable_hex_value = false;
+			for (i = 0; i < count; i++) {
+				val = fdt32_to_cpu(cell[i]);
+				if (val >= 10 || val < 0) {
+					has_probable_hex_value = true;
+					break;
+				}
+			}
+
+			if (count > 1)
+				fputs(" [", f);
+
+			for (i = 0; i < count; i++) {
+				val = fdt32_to_cpu(cell[i]);
+				if (!has_probable_hex_value)
+					fprintf(f, " %u", val);
+				else
+					fprintf(f, " 0x%08x", val);
+
+				if (i + 1 < count)
+					fputs(",", f);
+			}
+
+			if (count > 1)
+				fputs(" ]", f);
+
+			fputc('\n', f);
+
+		} else {
+			count = len;
+
+			/* try to find out if there's a hex value */
+			has_probable_hex_value = false;
+			for (i = 0; i < count; i++) {
+				val = (fdt32_t)s[i];
+				if (val >= 10 || val < 0) {
+					has_probable_hex_value = true;
+					break;
+				}
+			}
+
+			/* tag it as bytes */
+			fputs(" !int8", f);
+
+			if (count > 1)
+				fputs(" [", f);
+
+			for (i = 0; i < count; i++) {
+				val = (fdt32_t)s[i];
+				if (!has_probable_hex_value)
+					fprintf(f, " %u", val);
+				else
+					fprintf(f, " 0x%02x", val);
+
+				if (i + 1 < count)
+					fputs(",", f);
+			}
+
+			if (count > 1)
+				fputs(" ]", f);
+
+			fputc('\n', f);
+		}
+	}
+
+	/* count number of children */
+	for_each_child(tree, child)
+		outcount++;
+
+	/* "~: ~" for an empty tree without props or children */
+	if (outcount == 0)
+		fprintf(f, "%*s~: ~\n", depth * 2, "");
+
+	for_each_child(tree, child)
+		yaml_flatten_tree(f, dti, child, depth + 1, vi);
+
+	/* multiple labels to same node; spit out only the labels */
+	if (l && depth > 0) {
+		for_each_label(l, l)
+			fprintf(f, "%*s%s: &%s { }\n", (depth - 1) * 2, "",
+					tree->name, l->label);
+	}
+}
+
+void dt_to_yaml(FILE *f, struct dt_info *dti, int version)
+{
+	struct version_info *vi = NULL;
+	struct reserve_info *re;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(version_table); i++) {
+		if (version_table[i].version == version)
+			vi = &version_table[i];
+	}
+	if (!vi)
+		die("Unknown device tree blob version %d\n", version);
+
+	if (dti->reservelist) {
+		fprintf(f, "/memreserve/: [");
+		for (re = dti->reservelist; re; re = re->next) {
+			fprintf(f, " 0x%llx, 0x%llx",
+					(unsigned long long)re->address,
+					(unsigned long long)re->size);
+			if (re->next)
+				fprintf(f, ",");
+		}
+		fprintf(f, " ]\n");
+	}
+
+	i = 0;
+	yaml_generate_pseudo_labels(dti, dti->dt, &i);
+	yaml_flatten_tree(f, dti, dti->dt, 0, vi);
+}
+
 struct inbuf {
 	char *base, *limit, *ptr;
 };
