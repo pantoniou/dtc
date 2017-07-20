@@ -24,6 +24,7 @@
 
 static int width = 80;
 static int shift = 4;
+static bool dump_strtable = false;
 
 static const char *tagname(uint32_t tag)
 {
@@ -231,16 +232,38 @@ static void dump_blob(void *blob, bool debug)
 		print_prop(depth * shift + strlen(s), t, sz);
 		printf(";\n");
 	}
+
+	if (dump_strtable) {
+		if (version < 3) {
+			printf("// Can't dump string table (version %d < 3)\n",
+					version);
+			return;
+		}
+
+		printf("// String table contents:\n");
+		s = p_strings;
+		t = s + fdt32_to_cpu(bph->size_dt_strings);
+		while (s < t) {
+			i = strnlen(s, (size_t)(t - s));
+			if (s + i > t || s[i] != '\0') {
+				printf("// String table dump ends; malformed\n");
+				break;
+			}
+			printf("// \"%s\"\n", s);
+			s += i + 1;
+		}
+	}
 }
 
 /* Usage related data. */
 static const char usage_synopsis[] = "fdtdump [options] <file>";
-static const char usage_short_opts[] = "dsw:S:" USAGE_COMMON_SHORT_OPTS;
+static const char usage_short_opts[] = "dsDw:S:" USAGE_COMMON_SHORT_OPTS;
 static struct option const usage_long_opts[] = {
 	{"debug",            no_argument, NULL, 'd'},
 	{"scan",             no_argument, NULL, 's'},
 	{"width",	     required_argument, NULL, 'w' },
 	{"shift",	     required_argument, NULL, 'S' },
+	{"strtable",         no_argument, NULL, 'D' },
 	USAGE_COMMON_LONG_OPTS
 };
 static const char * const usage_opts_help[] = {
@@ -248,6 +271,7 @@ static const char * const usage_opts_help[] = {
 	"Scan for an embedded fdt in file",
 	"Width of output",
 	"Shift space amount when recursing",
+	"Dump complete string table",
 	USAGE_COMMON_OPTS_HELP
 };
 
@@ -294,6 +318,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'S':
 			shift = atoi(optarg);
+			break;
+		case 'D':
+			dump_strtable = true;
 			break;
 		}
 	}
