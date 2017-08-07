@@ -895,7 +895,7 @@ static void yaml_flatten_tree(FILE *f, struct dt_info *dti,
 			}
 
 			/* tag it as bytes */
-			fputs(" !int8", f);
+			fputs(" !uint8", f);
 
 			if (count > 1)
 				fputs(" [", f);
@@ -905,7 +905,7 @@ static void yaml_flatten_tree(FILE *f, struct dt_info *dti,
 				if (!has_probable_hex_value)
 					fprintf(f, " %u", val);
 				else
-					fprintf(f, " 0x%02x", val);
+					fprintf(f, " 0x%02x", val & 0xff);
 
 				if (i + 1 < count)
 					fputs(",", f);
