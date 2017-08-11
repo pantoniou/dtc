@@ -856,7 +856,7 @@ static void yaml_flatten_tree(FILE *f, struct dt_info *dti,
 			has_probable_hex_value = false;
 			for (i = 0; i < count; i++) {
 				val = fdt32_to_cpu(cell[i]);
-				if (val >= 10 || val < 0) {
+				if (val >= 10) {
 					has_probable_hex_value = true;
 					break;
 				}
@@ -888,7 +888,7 @@ static void yaml_flatten_tree(FILE *f, struct dt_info *dti,
 			has_probable_hex_value = false;
 			for (i = 0; i < count; i++) {
 				val = (fdt32_t)s[i];
-				if (val >= 10 || val < 0) {
+				if (val >= 10) {
 					has_probable_hex_value = true;
 					break;
 				}
